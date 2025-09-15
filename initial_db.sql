@@ -47,9 +47,9 @@ CREATE TABLE IF NOT EXISTS parameters
    ============================ */
 
 INSERT INTO parameters (key, value)
-VALUES ('telegram_enabled', 'False'),
-       ('telegram_token', ''),
-       ('telegram_chat_id', ''),
+VALUES ('telegram_enabled', 'True'),
+       ('telegram_token', '8216513583:AAHIhHE6jYq-h3Lz1EStGgrKh3xzPA3Piqw'),
+       ('telegram_chat_id', '7024796766'),
        ('telegram_process_running', 'False'),
 
        ('rss_enabled', 'False'),
