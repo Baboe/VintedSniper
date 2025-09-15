@@ -10,7 +10,7 @@ MESSAGE = '''\
 
 #### WEB UI SETTINGS ####
 # Web UI port
-WEB_UI_PORT = int(os.getenv("PORT", 8000))
+WEB_UI_PORT = int(os.getenv("PORT", 8080))
 
 #### HTTP HEADERS ####
 # User agents for rotating to avoid detection

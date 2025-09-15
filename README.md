@@ -43,7 +43,7 @@ when items matching your search criteria are posted.
 3. **Initial Configuration**
 
    The application can be configured through the Web UI after starting. The Web UI binds to the port specified by the
-   `PORT` environment variable (default `8000`, configurable in `configuration_values.py`).
+   `PORT` environment variable (default `8080`, configurable in `configuration_values.py`).
 
 4. **Run the application**
 
@@ -52,14 +52,14 @@ when items matching your search criteria are posted.
    ```
 
    Once started, access the Web UI at `http://localhost:<PORT>` to complete the setup, where `<PORT>` is the value of
-   the `PORT` environment variable or `8000` if not set.
+   the `PORT` environment variable or `8080` if not set.
 
 ## 🚀 Usage
 
 ### Web UI
 
 The Web UI is the easiest way to manage the application. Access it at `http://localhost:<PORT>` after starting the
-application (`<PORT>` defaults to `8000` if the `PORT` environment variable is not defined).
+application (`<PORT>` defaults to `8080` if the `PORT` environment variable is not defined).
 
 Features available in the Web UI:
 
