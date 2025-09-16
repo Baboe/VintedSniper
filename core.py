@@ -1,6 +1,7 @@
 import db, configuration_values, requests
 from pyVintedVN import Vinted, requester
 from urllib.parse import urlparse, parse_qs, urlencode, urlunparse
+from typing import Optional
 from logger import get_logger
 
 from fuzzy_matcher import (
@@ -9,11 +10,35 @@ from fuzzy_matcher import (
     decode_query_name,
     encode_query_name,
     find_best_fuzzy_match,
-    format_fuzzy_match,
+)
+
+from valuation_engine import (
+    EbayMarketDataFetcher,
+    ValuationEngine,
+    build_reference_line,
+    format_active_summary,
+    format_confidence_line,
+    format_fuzzy_line,
+    format_market_summary,
+    format_money,
+    format_profit_estimate,
 )
 
 # Get logger for this module
 logger = get_logger(__name__)
+
+
+_valuation_engine: Optional[ValuationEngine] = None
+
+
+def _get_valuation_engine() -> ValuationEngine:
+    """Return a singleton valuation engine instance."""
+
+    global _valuation_engine
+    if _valuation_engine is None:
+        fetcher = EbayMarketDataFetcher()
+        _valuation_engine = ValuationEngine(fetcher)
+    return _valuation_engine
 
 
 def process_query(query, name=None):
@@ -308,7 +333,7 @@ def clear_item_queue(items_queue, new_items_queue):
                 db.update_last_timestamp(query_id, item.raw_timestamp)
                 pass
             else:
-                fuzzy_display = "N/A"
+                fuzzy_result = None
                 if base_search_text:
                     fuzzy_result = find_best_fuzzy_match(
                         base_search_text,
@@ -325,15 +350,36 @@ def clear_item_queue(items_queue, new_items_queue):
                             base_search_text,
                         )
                         continue
-                    fuzzy_display = format_fuzzy_match(fuzzy_result)
+
+                valuation_engine = _get_valuation_engine()
+                valuation = valuation_engine.evaluate(
+                    item.title,
+                    item.brand_title,
+                    item.price,
+                    item.currency,
+                    base_search_text,
+                    fuzzy_result,
+                )
+
+                market_summary = format_market_summary(valuation.sold_summary)
+                active_summary = format_active_summary(valuation.active_summary)
+                fuzzy_line = format_fuzzy_line(valuation.normalization)
+                profit_line = format_profit_estimate(valuation)
+                confidence_line = format_confidence_line(valuation)
+                reference_line = build_reference_line(valuation)
 
                 # We create the message
                 content = configuration_values.MESSAGE.format(
                     title=item.title,
-                    price=str(item.price) + " " + item.currency,
-                    brand=item.brand_title,
-                    fuzzy_match=fuzzy_display,
-                    image=None if item.photo is None else item.photo
+                    price=format_money(item.price, item.currency),
+                    brand=item.brand_title or "N/A",
+                    market_comps=market_summary,
+                    active_listings=active_summary,
+                    fuzzy_match=fuzzy_line,
+                    profit_estimate=profit_line,
+                    confidence=confidence_line,
+                    reference=reference_line,
+                    image=item.photo or "",
                 )
                 # add the item to the queue
                 new_items_queue.put((content, item.url, "Open Vinted", None, None))
