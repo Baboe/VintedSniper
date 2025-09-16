@@ -1,9 +1,9 @@
-# Vinted-Notifications
+# Vinted Sniper
 
 A real-time notification system for Vinted listings that works across all Vinted country domains. Get instant alerts
 when items matching your search criteria are posted.
 
-![Vinted-Notifications](https://github.com/user-attachments/assets/f2788511-5a8a-4a8d-8198-a4135081a3d8)
+![Vinted Sniper](https://github.com/user-attachments/assets/f2788511-5a8a-4a8d-8198-a4135081a3d8)
 
 ## 📋 Features
 
@@ -27,11 +27,11 @@ when items matching your search criteria are posted.
 1. **Clone the repository or download the latest release**
 
    ```bash
-   git clone https://github.com/Fuyucch1/Vinted-Notifications.git
-   cd Vinted-Notifications
+   git clone https://github.com/Fuyucch1/VintedSniper.git
+   cd VintedSniper
    ```
 
-   Alternatively, download the [latest release](https://github.com/Fuyucch1/Vinted-Notifications/releases/latest) and
+   Alternatively, download the [latest release](https://github.com/Fuyucch1/VintedSniper/releases/latest) and
    extract it.
 
 2. **Install dependencies**
@@ -121,7 +121,7 @@ MESSAGE = '''\
 
 ## 🔄 Updating
 
-1. Download the latest [release](https://github.com/Fuyucch1/Vinted-Notifications/releases/latest)
+1. Download the latest [release](https://github.com/Fuyucch1/VintedSniper/releases/latest)
 2. Back up your `vinted_notifications.db` file
 3. Replace all files with the new ones
 4. Restart the application

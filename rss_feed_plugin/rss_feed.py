@@ -16,7 +16,7 @@ class RSSFeed:
 
         # Initialize feed generator
         self.fg = FeedGenerator()
-        self.fg.title('Vinted Notifications')
+        self.fg.title('Vinted Sniper')
         self.fg.description('Latest items from Vinted matching your search queries')
         self.fg.link(href=f'http://localhost:{db.get_parameter("rss_port")}')
         self.fg.language('en')
