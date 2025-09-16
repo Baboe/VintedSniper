@@ -2,10 +2,12 @@ import os
 
 #### NOTIFICATION ####
 MESSAGE = '''\
-🆕 Title : {title}
-💶 Price : {price}
-🛍️ Brand : {brand}
-🎯 Match : {fuzzy_match}
+🆕 {title}
+💶 Vinted: {price}
+🛍️ Brand: {brand}
+📈 Market comps: {market_comps}{active_listings}
+🔎 Fuzzy: {fuzzy_match}
+💡 Profit est: {profit_estimate}{confidence}{reference}
 <a href='{image}'>&#8205;</a>
 '''
 
