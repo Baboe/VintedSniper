@@ -3,6 +3,15 @@ from pyVintedVN import Vinted, requester
 from urllib.parse import urlparse, parse_qs, urlencode, urlunparse
 from logger import get_logger
 
+from fuzzy_matcher import (
+    DEFAULT_FUZZY_THRESHOLD,
+    _expand_search_text_variants,
+    decode_query_name,
+    encode_query_name,
+    find_best_fuzzy_match,
+    format_fuzzy_match,
+)
+
 # Get logger for this module
 logger = get_logger(__name__)
 
@@ -39,19 +48,50 @@ def process_query(query, name=None):
     query_params.pop('page', None)
 
     searched_text = query_params.get('search_text')
+    base_search_text = searched_text[0] if searched_text else None
 
-    # Rebuild the query string and the entire URL
-    new_query = urlencode(query_params, doseq=True)
-    processed_query = urlunparse(
-        (parsed_url.scheme, parsed_url.netloc, parsed_url.path, parsed_url.params, new_query, parsed_url.fragment))
+    display_name = name or base_search_text
+    stored_name = encode_query_name(display_name, base_search_text)
 
-    # Some queries are made with filters only, so we need to check if the search_text is present
-    if db.is_query_in_db(processed_query) is True:
-        return "Query already exists.", False
+    base_params = {key: list(value) for key, value in query_params.items()}
+
+    variant_queries = []
+    if base_search_text:
+        expanded_terms = _expand_search_text_variants(base_search_text)
+        logger.info(
+            "Expanded search_text '%s' into %d variant(s)",
+            base_search_text,
+            len(expanded_terms),
+        )
+        for variant in expanded_terms:
+            params = {key: list(value) for key, value in base_params.items()}
+            params['search_text'] = [variant]
+            new_query = urlencode(params, doseq=True)
+            processed_query = urlunparse(
+                (parsed_url.scheme, parsed_url.netloc, parsed_url.path, parsed_url.params, new_query,
+                 parsed_url.fragment))
+            variant_queries.append(processed_query)
     else:
-        # add the query to the db
-        db.add_query_to_db(processed_query, name)
+        new_query = urlencode(base_params, doseq=True)
+        processed_query = urlunparse(
+            (parsed_url.scheme, parsed_url.netloc, parsed_url.path, parsed_url.params, new_query,
+             parsed_url.fragment))
+        variant_queries.append(processed_query)
+
+    added_count = 0
+    for processed_query in variant_queries:
+        if db.is_query_in_db(processed_query):
+            continue
+        db.add_query_to_db(processed_query, stored_name)
+        added_count += 1
+
+    if added_count == 0:
+        return "Query already exists.", False
+
+    if len(variant_queries) == 1:
         return "Query added.", True
+
+    return f"Added {added_count} queries ({len(variant_queries)} variants considered).", True
 
 def get_formatted_query_list():
     """
@@ -61,21 +101,16 @@ def get_formatted_query_list():
         str: A formatted string with all queries, numbered
     """
     all_queries = db.get_queries()
-    queries_keywords = []
+    entries = []
     for query in all_queries:
         parsed_url = urlparse(query[1])
         query_params = parse_qs(parsed_url.query)
+        display_name, _ = decode_query_name(query[3])
+        fallback = query_params.get('search_text', [None])[0]
+        entry = display_name or fallback or query[1]
+        entries.append(entry)
 
-        # Get the name or Extract the value of 'search_text'
-        query_name = query[3] if query[3] is not None else query_params.get('search_text', [None])[0]
-
-        if query_name[0] is None:
-            # Use query text instead of the whole query object
-            queries_keywords.append([query[1]])
-        else:
-            queries_keywords.append(query_name)
-
-    query_list = ("\n").join([str(i + 1) + ". " + j[0] for i, j in enumerate(queries_keywords)])
+    query_list = "\n".join(f"{i + 1}. {value}" for i, value in enumerate(entries))
     return query_list
 
 
@@ -215,7 +250,7 @@ def process_items(queue):
         all_items = vinted.items.search(query[1], nbr_items=items_per_query)
         # Filter to only include new items. This should reduce the amount of db calls.
         data = [item for item in all_items if item.is_new_item()]
-        queue.put((data, query[0]))
+        queue.put((data, query[0], query[1], query[3]))
         logger.info(f"Scraped {len(data)} items for query: {query[1]}")
 
 
@@ -225,7 +260,36 @@ def clear_item_queue(items_queue, new_items_queue):
     This function is scheduled to run frequently.
     """
     if not items_queue.empty():
-        data, query_id = items_queue.get()
+        payload = items_queue.get()
+        if isinstance(payload, (list, tuple)):
+            if len(payload) >= 4:
+                data, query_id, query_url, stored_name = payload[:4]
+            elif len(payload) == 3:
+                data, query_id, query_url = payload
+                stored_name = None
+            else:
+                data, query_id = payload[:2]
+                query_url = None
+                stored_name = None
+        else:
+            data = payload
+            query_id = None
+            query_url = None
+            stored_name = None
+
+        if query_id is None:
+            logger.warning("Received item payload without query id; skipping processing.")
+            return
+
+        _, base_search_text = decode_query_name(stored_name)
+        if base_search_text is None and query_url:
+            parsed_query = urlparse(query_url)
+            query_params = parse_qs(parsed_query.query)
+            base_search_text = query_params.get('search_text', [None])[0]
+
+        allowlist = db.get_allowlist()
+        allowed_countries = allowlist if allowlist != 0 else None
+
         for item in reversed(data):
 
             # If already in db, pass
@@ -239,16 +303,36 @@ def clear_item_queue(items_queue, new_items_queue):
                 pass
             # If there's an allowlist and
             # If the user's country is not in the allowlist, we just update the timestamp
-            elif db.get_allowlist() != 0 and (get_user_country(item.raw_data["user"]["id"])) not in (
-                    db.get_allowlist() + ["XX"]):
+            elif allowed_countries is not None and (
+                    get_user_country(item.raw_data["user"]["id"])) not in (allowed_countries + ["XX"]):
                 db.update_last_timestamp(query_id, item.raw_timestamp)
                 pass
             else:
+                fuzzy_display = "N/A"
+                if base_search_text:
+                    fuzzy_result = find_best_fuzzy_match(
+                        base_search_text,
+                        item.title,
+                        item.brand_title,
+                        threshold=DEFAULT_FUZZY_THRESHOLD,
+                    )
+                    if fuzzy_result is None:
+                        db.update_last_timestamp(query_id, item.raw_timestamp)
+                        logger.debug(
+                            "Skipping item %s for query %s due to fuzzy mismatch against '%s'",
+                            item.id,
+                            query_id,
+                            base_search_text,
+                        )
+                        continue
+                    fuzzy_display = format_fuzzy_match(fuzzy_result)
+
                 # We create the message
                 content = configuration_values.MESSAGE.format(
                     title=item.title,
                     price=str(item.price) + " " + item.currency,
                     brand=item.brand_title,
+                    fuzzy_match=fuzzy_display,
                     image=None if item.photo is None else item.photo
                 )
                 # add the item to the queue

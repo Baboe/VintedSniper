@@ -5,6 +5,7 @@ MESSAGE = '''\
 🆕 Title : {title}
 💶 Price : {price}
 🛍️ Brand : {brand}
+🎯 Match : {fuzzy_match}
 <a href='{image}'>&#8205;</a>
 '''
 

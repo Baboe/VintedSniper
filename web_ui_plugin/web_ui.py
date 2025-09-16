@@ -4,6 +4,7 @@ from urllib.parse import urlparse, parse_qs
 from datetime import datetime
 from logger import get_logger
 import configuration_values
+from fuzzy_matcher import decode_query_name
 
 # Get logger for this module
 logger = get_logger(__name__)
@@ -44,7 +45,8 @@ def index():
     for i, query in enumerate(queries):
         parsed_query = urlparse(query[1])
         query_params = parse_qs(parsed_query.query)
-        query_name = query[3] if query[3] is not None else query_params.get('search_text', [None])[0]
+        display_name, _ = decode_query_name(query[3])
+        query_name = display_name if display_name is not None else query_params.get('search_text', [None])[0]
 
         # Get the last timestamp for this query
         try:
@@ -117,7 +119,8 @@ def queries():
     for i, query in enumerate(all_queries):
         parsed_query = urlparse(query[1])
         query_params = parse_qs(parsed_query.query)
-        query_name = query[3] if query[3] is not None else query_params.get('search_text', [None])[0]
+        display_name, _ = decode_query_name(query[3])
+        query_name = display_name if display_name is not None else query_params.get('search_text', [None])[0]
 
         # Get the last timestamp for this query
         try:
@@ -211,7 +214,8 @@ def items():
     for i, q in enumerate(queries):
         parsed_query = urlparse(q[1])
         query_params = parse_qs(parsed_query.query)
-        query_name = q[3] if q[3] is not None else query_params.get('search_text', [None])[0]
+        display_name, _ = decode_query_name(q[3])
+        query_name = display_name if display_name is not None else query_params.get('search_text', [None])[0]
         display_name = query_name if query_name else q[0]
         # Store display name for selected query
         if query_id == str(q[0]):
