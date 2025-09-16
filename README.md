@@ -136,4 +136,5 @@ This project is licensed under the [GNU AFFERO GENERAL PUBLIC LICENSE](LICENSE).
 
 ## 🙏 Acknowledgements
 
+- Built on top of the open-source [Vinted-Notifications](https://github.com/Fuyucch1/Vinted-Notifications) project.
 - Thanks to [@herissondev](https://github.com/herissondev) for maintaining pyVinted, a core dependency of this project.
