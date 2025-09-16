@@ -58,7 +58,7 @@ VALUES ('telegram_enabled', 'True'),
        ('rss_process_running', 'False'),
 
        ('version', '1.0.4'),
-       ('github_url', 'https://github.com/Fuyucch1/Vinted-Notifications'),
+       ('github_url', 'https://github.com/Fuyucch1/VintedSniper'),
 
        ('items_per_query', '20'),
        ('query_refresh_delay', '60'),

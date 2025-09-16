@@ -11,7 +11,7 @@ async def hello(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     try:
         ver = db.get_parameter("version")
         await update.message.reply_text(
-            f'Hello {update.effective_user.first_name}! Vinted-Notifications is running under version {ver}.\n')
+            f'Hello {update.effective_user.first_name}! Vinted Sniper is running under version {ver}.\n')
     except Exception as e:
         logger.error(f"Error in hello command: {str(e)}", exc_info=True)
         try:
