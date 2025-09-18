@@ -80,8 +80,21 @@ def process_query(query, name=None):
 
     base_params = {key: list(value) for key, value in query_params.items()}
 
+    def build_processed_query(params):
+        new_query = urlencode(params, doseq=True)
+        return urlunparse(
+            (
+                parsed_url.scheme,
+                parsed_url.netloc,
+                parsed_url.path,
+                parsed_url.params,
+                new_query,
+                parsed_url.fragment,
+            )
+        )
+
     variant_queries = []
-    if base_search_text:
+    if base_search_text and configuration_values.ENABLE_VARIANTS:
         expanded_terms = _expand_search_text_variants(base_search_text)
         logger.info(
             "Expanded search_text '%s' into %d variant(s)",
@@ -91,17 +104,14 @@ def process_query(query, name=None):
         for variant in expanded_terms:
             params = {key: list(value) for key, value in base_params.items()}
             params['search_text'] = [variant]
-            new_query = urlencode(params, doseq=True)
-            processed_query = urlunparse(
-                (parsed_url.scheme, parsed_url.netloc, parsed_url.path, parsed_url.params, new_query,
-                 parsed_url.fragment))
-            variant_queries.append(processed_query)
+            variant_queries.append(build_processed_query(params))
     else:
-        new_query = urlencode(base_params, doseq=True)
-        processed_query = urlunparse(
-            (parsed_url.scheme, parsed_url.netloc, parsed_url.path, parsed_url.params, new_query,
-             parsed_url.fragment))
-        variant_queries.append(processed_query)
+        if base_search_text and not configuration_values.ENABLE_VARIANTS:
+            logger.info(
+                "Search text variants disabled by configuration; using base search_text '%s' only.",
+                base_search_text,
+            )
+        variant_queries.append(build_processed_query(base_params))
 
     added_count = 0
     for processed_query in variant_queries:

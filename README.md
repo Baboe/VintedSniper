@@ -119,6 +119,18 @@ MESSAGE = '''\
 '''
 ```
 
+### Search Text Variants
+
+By default Vinted Sniper automatically generates typo-resistant variations of each query's `search_text` value to
+catch more listings. You can disable this behaviour by setting the `ENABLE_VARIANTS` flag to `False` in
+`configuration_values.py` or by exporting the environment variable before starting the app:
+
+```bash
+export ENABLE_VARIANTS=false
+```
+
+When the flag is disabled only the exact query you provide will be monitored.
+
 ## 🔄 Updating
 
 1. Download the latest [release](https://github.com/Fuyucch1/VintedSniper/releases/latest)

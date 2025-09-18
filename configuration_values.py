@@ -11,6 +11,10 @@ MESSAGE = '''\
 <a href='{image}'>&#8205;</a>
 '''
 
+#### SEARCH SETTINGS ####
+# Toggle automatic generation of search term variants for each query
+ENABLE_VARIANTS = os.getenv("ENABLE_VARIANTS", "true").lower() not in ("0", "false", "no", "off")
+
 #### WEB UI SETTINGS ####
 # Web UI port
 WEB_UI_PORT = int(os.getenv("PORT", 8080))
