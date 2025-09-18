@@ -11,7 +11,7 @@ from unidecode import unidecode
 
 QUERY_NAME_DELIMITER = "||"
 DEFAULT_FUZZY_THRESHOLD = 72
-MAX_VARIANTS = 30
+MAX_VARIANTS = 5
 
 WORD_SUBSTITUTIONS: Dict[str, Iterable[str]] = {
     "ph": ("f",),
