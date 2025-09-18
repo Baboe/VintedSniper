@@ -24,6 +24,14 @@ CURRENCY_SYMBOLS: Dict[str, str] = {
 }
 
 
+CANONICAL_FUZZY_SCORE = 90
+LIKELY_FUZZY_SCORE = 82
+
+# eBay sold comparables should be limited to the most recent few entries to avoid
+# excessive API usage while still giving a reliable snapshot of the market.
+MAX_SOLD_COMP_RESULTS = 5
+
+
 @dataclass
 class ListingComp:
     """A lightweight representation of a comparable listing."""
@@ -208,6 +216,8 @@ class ListingNormalizer:
         normalized = unidecode(value)
         normalized = normalized.replace("-", " ")
         normalized = normalized.replace("_", " ")
+        normalized = normalized.replace("&", " ")
+        normalized = normalized.replace("'", " ")
         return " ".join(normalized.split()).strip()
 
     def normalize(
@@ -227,19 +237,22 @@ class ListingNormalizer:
         match_quality = "unknown"
 
         if fuzzy_result:
-            fuzzy_term = (fuzzy_result.get("target") or "").strip() or None
+            fuzzy_term_candidate = (fuzzy_result.get("target") or "").strip() or None
+            fuzzy_term = self._clean(fuzzy_term_candidate)
+            if not fuzzy_term:
+                fuzzy_term = fuzzy_term_candidate
             try:
                 fuzzy_score = float(fuzzy_result.get("score"))
             except (TypeError, ValueError):
                 fuzzy_score = None
 
         if not fuzzy_term and base_search_text:
-            fuzzy_term = base_search_text.strip() or None
+            fuzzy_term = self._clean(base_search_text) or None
 
         if fuzzy_score is not None:
-            if fuzzy_score >= 90:
+            if fuzzy_score >= CANONICAL_FUZZY_SCORE:
                 match_quality = "canonical"
-            elif 82 <= fuzzy_score <= 89:
+            elif LIKELY_FUZZY_SCORE <= fuzzy_score < CANONICAL_FUZZY_SCORE:
                 match_quality = "likely"
             else:
                 match_quality = "approximate"
@@ -247,12 +260,12 @@ class ListingNormalizer:
             match_quality = "approximate"
 
         parts: List[str] = []
-        if brand and brand.strip():
-            parts.append(brand.strip())
+        if cleaned_brand:
+            parts.append(cleaned_brand)
         if fuzzy_term:
             parts.append(fuzzy_term)
-        elif title:
-            parts.append(title.strip())
+        elif cleaned_title:
+            parts.append(cleaned_title)
 
         # Remove duplicates while preserving order
         seen: Dict[str, None] = {}
@@ -315,7 +328,7 @@ class EbayMarketDataFetcher:
     def fetch_sold_comps(
         self,
         query: str,
-        limit: int = 30,
+        limit: int = MAX_SOLD_COMP_RESULTS,
         global_id: Optional[str] = None,
     ) -> List[ListingComp]:
         """Return a list of sold comparable listings for ``query``."""
@@ -323,6 +336,11 @@ class EbayMarketDataFetcher:
         if not self.app_id or not query:
             logger.debug("Skipping sold comps fetch due to missing credentials or query")
             return []
+
+        if limit <= 0:
+            return []
+
+        page_size = max(1, min(limit, MAX_SOLD_COMP_RESULTS))
 
         params = {
             "OPERATION-NAME": "findCompletedItems",
@@ -333,7 +351,7 @@ class EbayMarketDataFetcher:
             "keywords": query,
             "itemFilter(0).name": "SoldItemsOnly",
             "itemFilter(0).value": "true",
-            "paginationInput.entriesPerPage": str(max(1, min(limit, 100))),
+            "paginationInput.entriesPerPage": str(page_size),
             "sortOrder": "EndTimeSoonest",
         }
         if global_id:
@@ -466,13 +484,16 @@ class ValuationEngine:
         self,
         fetcher: Optional[EbayMarketDataFetcher],
         normalizer: Optional[ListingNormalizer] = None,
-        sold_limit: int = 30,
+        sold_limit: int = MAX_SOLD_COMP_RESULTS,
         active_limit: int = 10,
         low_variance_threshold: float = 0.35,
     ) -> None:
         self.fetcher = fetcher
         self.normalizer = normalizer or ListingNormalizer()
-        self.sold_limit = sold_limit
+        if sold_limit <= 0:
+            self.sold_limit = 0
+        else:
+            self.sold_limit = min(sold_limit, MAX_SOLD_COMP_RESULTS)
         self.active_limit = active_limit
         self.low_variance_threshold = low_variance_threshold
 
@@ -494,12 +515,13 @@ class ValuationEngine:
 
         if self.fetcher and normalization.canonical_query:
             global_id = self.fetcher.pick_global_id(currency)
-            sold_comps = self.fetcher.fetch_sold_comps(
-                normalization.canonical_query,
-                limit=self.sold_limit,
-                global_id=global_id,
-            )
-            sold_summary = self._summarize(sold_comps, "eBay sold")
+            if self.sold_limit > 0:
+                sold_comps = self.fetcher.fetch_sold_comps(
+                    normalization.canonical_query,
+                    limit=self.sold_limit,
+                    global_id=global_id,
+                )
+                sold_summary = self._summarize(sold_comps, "eBay sold")
 
             if self.active_limit > 0:
                 active_listings = self.fetcher.fetch_active_listings(
@@ -599,13 +621,13 @@ class ValuationEngine:
 
         score = fuzzy_score or 0
         if (
-            score >= 90
+            score >= CANONICAL_FUZZY_SCORE
             and comps >= 8
             and self._has_low_variance(summary.prices)
         ):
             return "High", "🟢"
 
-        if (82 <= score < 90) or (4 <= comps <= 7):
+        if (LIKELY_FUZZY_SCORE <= score < CANONICAL_FUZZY_SCORE) or (4 <= comps <= 7):
             return "Medium", "🟡"
 
         if comps >= 8:
