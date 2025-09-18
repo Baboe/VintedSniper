@@ -15,6 +15,11 @@
                 <h5 class="card-title mb-0">Add New Query</h5>
             </div>
             <div class="card-body">
+                {% if variants_enabled %}
+                <div class="alert alert-info" role="alert">
+                    Adding a query will also generate typo-resistant search variations to help catch more listings.
+                </div>
+                {% endif %}
                 <form action="/add_query" method="post">
                     <div class="row g-3">
 

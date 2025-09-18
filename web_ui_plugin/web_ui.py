@@ -34,6 +34,11 @@ def inject_current_year():
     return {'current_year': datetime.now().year}
 
 
+@app.context_processor
+def inject_feature_flags():
+    return {'variants_enabled': configuration_values.ENABLE_VARIANTS}
+
+
 @app.route('/')
 def index():
     # Get parameters
